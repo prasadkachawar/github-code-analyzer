@@ -1,0 +1,187 @@
+name: Deploy Validation
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate-deployment:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies for web app
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements_minimal.txt
+
+    - name: Validate Flask app
+      run: |
+        python -c "
+        import sys
+        sys.path.append('.')
+        from app_simple import app
+        print('✅ Flask app imports successfully')
+        
+        with app.test_client() as client:
+            response = client.get('/health')
+            assert response.status_code == 200
+            print('✅ Health endpoint works')
+            
+            response = client.get('/')
+            assert response.status_code == 200
+            print('✅ Main page loads')
+            
+        print('🎉 Web app validation passed!')
+        "
+
+    - name: Test demo analysis endpoint
+      run: |
+        python -c "
+        import sys
+        sys.path.append('.')
+        from app_simple import app
+        import json
+        
+        with app.test_client() as client:
+            response = client.get('/demo')
+            assert response.status_code == 200
+            data = response.get_json()
+            assert 'violations' in data
+            assert 'summary' in data
+            print('✅ Demo analysis endpoint works')
+            print(f'   Found {len(data[\"violations\"])} demo violations')
+        "
+
+    - name: Test GitHub URL validation
+      run: |
+        python -c "
+        import sys
+        sys.path.append('.')
+        from app_simple import is_valid_github_url, extract_repo_info
+        
+        # Test valid URLs
+        assert is_valid_github_url('https://github.com/curl/curl')
+        assert is_valid_github_url('https://github.com/git/git')
+        
+        # Test invalid URLs
+        assert not is_valid_github_url('https://gitlab.com/test/repo')
+        assert not is_valid_github_url('invalid-url')
+        
+        # Test repo extraction
+        owner, repo = extract_repo_info('https://github.com/curl/curl')
+        assert owner == 'curl' and repo == 'curl'
+        
+        print('✅ GitHub URL validation works')
+        "
+
+    - name: Deployment readiness check
+      run: |
+        echo "🚀 Deployment Readiness Check"
+        echo "=============================="
+        
+        # Check required files exist
+        files=("app_simple.py" "requirements_minimal.txt" "templates/index.html" "Procfile_simple")
+        for file in "${files[@]}"; do
+          if [ -f "$file" ]; then
+            echo "✅ $file exists"
+          else
+            echo "❌ $file missing"
+            exit 1
+          fi
+        done
+        
+        # Check requirements file content
+        if grep -q "Flask" requirements_minimal.txt && grep -q "gunicorn" requirements_minimal.txt; then
+          echo "✅ requirements_minimal.txt has essential dependencies"
+        else
+          echo "❌ requirements_minimal.txt missing essential dependencies"
+          exit 1
+        fi
+        
+        echo ""
+        echo "🎉 Ready for deployment!"
+        echo "📋 Next steps:"
+        echo "   1. Deploy on Render.com"
+        echo "   2. Use Python 3 runtime"
+        echo "   3. Build: pip install -r requirements_minimal.txt"
+        echo "   4. Start: gunicorn app_simple:app --bind 0.0.0.0:\$PORT --timeout 120 --workers 1"
+
+  security-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run security checks
+      run: |
+        echo "🔒 Security Check"
+        echo "================"
+        
+        # Check for exposed secrets
+        if grep -r "sk-" . --exclude-dir=.git --exclude="*.md" || \
+           grep -r "ghp_" . --exclude-dir=.git --exclude="*.md" || \
+           grep -r "password.*=" . --exclude-dir=.git --exclude="*.md" --exclude="*.example"; then
+          echo "⚠️  Potential secrets found - review carefully"
+        else
+          echo "✅ No obvious secrets exposed"
+        fi
+        
+        # Check for .env files
+        if find . -name ".env" -not -path "./.git/*" | grep -q .; then
+          echo "⚠️  .env files found - ensure they're in .gitignore"
+        else
+          echo "✅ No .env files in repository"
+        fi
+        
+        # Verify .gitignore
+        if [ -f ".gitignore" ]; then
+          if grep -q ".env" .gitignore; then
+            echo "✅ .env files are gitignored"
+          else
+            echo "⚠️  .env not in .gitignore"
+          fi
+        fi
+
+  readme-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Check documentation
+      run: |
+        echo "📚 Documentation Check"
+        echo "====================="
+        
+        # Check for essential documentation files
+        docs=("README.md" "QUICK_START.md" "DEPLOYMENT_GUIDE.md")
+        for doc in "${docs[@]}"; do
+          if [ -f "$doc" ]; then
+            echo "✅ $doc exists"
+          else
+            echo "❌ $doc missing"
+          fi
+        done
+        
+        # Check README content
+        if [ -f "README.md" ]; then
+          if grep -q "GitHub Code Analyzer" README.md; then
+            echo "✅ README has project title"
+          else
+            echo "⚠️  README missing project description"
+          fi
+        fi
+        
+        echo "🎉 Documentation check complete!"
