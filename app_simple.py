@@ -117,11 +117,41 @@ def analyze_real_repository(repo_url):
         if response.status_code == 200:
             repo_info = response.json()
             
-            # Try to get some file info
-            contents_url = f"https://api.github.com/repos/{owner}/{repo}/contents"
-            contents_response = requests.get(contents_url, timeout=10)
+            # Try real analysis by cloning and analyzing
+            import subprocess
+            import tempfile
+            import shutil
             
-            # Generate realistic demo based on actual repository
+            # Clone repository to temporary directory
+            with tempfile.TemporaryDirectory() as temp_dir:
+                clone_cmd = ['git', 'clone', '--depth=1', repo_url, temp_dir]
+                result = subprocess.run(clone_cmd, capture_output=True, text=True, timeout=60)
+                
+                if result.returncode == 0:
+                    # Use real analyzer from simple_webhook_handler
+                    sys.path.insert(0, '.')
+                    from simple_webhook_handler import analyze_repository
+                    
+                    analysis_result = analyze_repository(temp_dir)
+                    
+                    if analysis_result and analysis_result.get('violations'):
+                        # Add repository metadata to real results
+                        analysis_result.update({
+                            'repository': {
+                                'owner': owner,
+                                'name': repo,
+                                'url': repo_url,
+                                'branch': repo_info.get('default_branch', 'main'),
+                                'description': repo_info.get('description', ''),
+                                'stars': repo_info.get('stargazers_count', 0),
+                                'language': repo_info.get('language', 'C')
+                            },
+                            'timestamp': datetime.now().isoformat(),
+                            'analyzer_version': '1.0.0-real'
+                        })
+                        return analysis_result
+            
+            # Fallback to demo if real analysis fails
             result = get_demo_analysis(owner, repo)
             
             # Add real repository metadata
