@@ -1,0 +1,2 @@
+libclang==16.0.6
+dataclasses-json==0.6.3

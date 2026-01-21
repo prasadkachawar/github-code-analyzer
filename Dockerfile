@@ -1,7 +1,7 @@
 FROM python:3.11-slim
 
-LABEL maintainer="Static Analysis MCP Server"
-LABEL description="MCP Server for GitHub Static Analysis Integration"
+LABEL maintainer="GitHub Code Analyzer"
+LABEL description="Web Application for GitHub Static Analysis"
 
 # Set working directory
 WORKDIR /app
@@ -11,29 +11,23 @@ RUN apt-get update && apt-get install -y \
     git \
     clang \
     libclang-16-dev \
-    wget \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first for better Docker layer caching
-COPY mcp_server/requirements.txt ./mcp_server/
-COPY static_analyzer/requirements.txt ./static_analyzer/
+# Copy requirements file
+COPY requirements_web.txt .
 
 # Install Python dependencies
-RUN pip install --no-cache-dir -r mcp_server/requirements.txt
-RUN pip install --no-cache-dir -r static_analyzer/requirements.txt
+RUN pip install --no-cache-dir -r requirements_web.txt
 
 # Copy application code
 COPY . .
-
-# Create necessary directories
-RUN mkdir -p /app/analysis_reports /app/analysis_baselines /app/temp_repos
 
 # Set environment variables
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 
-# Expose port for webhook handler
+# Expose port
 EXPOSE 5000
 
 # Health check
@@ -45,5 +39,5 @@ RUN useradd --create-home --shell /bin/bash appuser && \
     chown -R appuser:appuser /app
 USER appuser
 
-# Default command
-CMD ["python", "-m", "mcp_server.webhook_handler"]
+# Start the web application
+CMD ["gunicorn", "web_app:app", "--bind", "0.0.0.0:5000", "--timeout", "120", "--workers", "2"]

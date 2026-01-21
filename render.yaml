@@ -1,4 +1,4 @@
-# Render.com configuration
+# Render.com configuration for GitHub Code Analyzer
 version: 2
 services:
   - type: web
@@ -6,9 +6,11 @@ services:
     env: python
     plan: free
     buildCommand: "pip install -r requirements_web.txt"
-    startCommand: "gunicorn web_app:app --bind 0.0.0.0:$PORT --timeout 120"
+    startCommand: "gunicorn web_app:app --bind 0.0.0.0:$PORT --timeout 120 --workers 1"
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
       - key: PORT
         generateValue: true
+      - key: PYTHONPATH
+        value: /opt/render/project/src
