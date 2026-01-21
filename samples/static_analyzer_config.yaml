@@ -1,0 +1,46 @@
+# Static Analyzer Configuration
+# Production configuration for automotive embedded projects
+
+# Enabled coding standards
+standards:
+  - MISRA
+  - CERT
+
+# Rule configuration
+rules:
+  enabled:
+    - MISRA-C-2012-8.7
+    - MISRA-C-2012-10.1
+    - MISRA-C-2012-16.4
+    - CERT-EXP34-C
+    - CERT-ARR30-C
+  disabled: []
+
+# Analysis settings
+analysis:
+  include_paths:
+    - "./include"
+    - "./drivers/include"
+    - "/usr/include"
+  exclude_paths:
+    - "**/test/**"
+    - "**/tests/**"
+    - "**/*_test.c"
+    - "**/mock_*.c"
+    - "**/generated/**"
+  max_violations_per_rule: 1000
+  confidence_threshold: "low"  # low, medium, high
+
+# Output configuration
+output:
+  format: "json"  # json, yaml, csv
+  include_source_context: true
+  include_metadata: true
+
+# AI Assistant (optional - requires OpenAI API key)
+ai_assistant:
+  enabled: false
+  model: "gpt-4"
+  api_key_env: "OPENAI_API_KEY"
+  max_tokens: 500
+  temperature: 0.1

@@ -1,0 +1,162 @@
+{
+  "violations": [
+    {
+      "rule_id": "MISRA-C-2012-8.7",
+      "standard": "MISRA",
+      "location": {
+        "file_path": "samples/test_violations.c",
+        "line": 9,
+        "column": 5,
+        "end_line": null,
+        "end_column": null
+      },
+      "message": "Variable 'global_counter' is only used in function 'increment_counter' and should be defined at block scope",
+      "severity": "minor",
+      "confidence": "high",
+      "source_context": "int global_counter = 0;",
+      "metadata": {
+        "variable_name": "global_counter",
+        "used_in_function": "increment_counter"
+      },
+      "ai_explanation": "This violation indicates that a global variable is only accessed within a single function. Moving it to local scope improves encapsulation, reduces memory usage, and makes the code more maintainable by clearly showing the variable's limited usage scope.",
+      "ai_risk_summary": "Low risk: May lead to unnecessary memory consumption and reduced code clarity. Could indicate design issues where global state is used inappropriately.",
+      "ai_suggested_fix": "Move the 'global_counter' variable inside the 'increment_counter' function and make it static if state needs to be preserved between calls: 'static int counter = 0;'"
+    },
+    {
+      "rule_id": "CERT-EXP34-C",
+      "standard": "CERT", 
+      "location": {
+        "file_path": "samples/test_violations.c",
+        "line": 17,
+        "column": 15,
+        "end_line": null,
+        "end_column": null
+      },
+      "message": "Potential null pointer dereference: Variable 'data' used without null check",
+      "severity": "critical",
+      "confidence": "medium",
+      "source_context": "int len = strlen(data);",
+      "metadata": {
+        "risk_level": "medium",
+        "pointer_name": "data",
+        "analysis": {
+          "risk_level": "medium",
+          "reason": "Variable 'data' used without null check",
+          "confidence": "low"
+        }
+      },
+      "ai_explanation": "This critical violation occurs when a pointer parameter is dereferenced without first checking if it's NULL. In embedded systems, this can cause immediate system crashes, memory corruption, or unpredictable behavior that's difficult to debug.",
+      "ai_risk_summary": "High risk: System crash, memory corruption, undefined behavior. In safety-critical automotive systems, this could lead to system failures during operation.",
+      "ai_suggested_fix": "Add null pointer check before dereferencing: 'if (data == NULL) { return; /* or handle error appropriately */ } int len = strlen(data);'"
+    },
+    {
+      "rule_id": "MISRA-C-2012-10.1",
+      "standard": "MISRA",
+      "location": {
+        "file_path": "samples/test_violations.c",
+        "line": 21,
+        "column": 9,
+        "end_line": null,
+        "end_column": null
+      },
+      "message": "Mixed signed/unsigned operands in binary operation: int and unsigned int",
+      "severity": "major",
+      "confidence": "high",
+      "source_context": "int index = size - 1;",
+      "metadata": {
+        "left_type": "unsigned int",
+        "right_type": "int",
+        "operator": "binary_op"
+      },
+      "ai_explanation": "Mixing signed and unsigned types can lead to unexpected behavior due to implicit conversions. When an unsigned value is larger than INT_MAX, the conversion may not work as expected, potentially causing logic errors.",
+      "ai_risk_summary": "Medium risk: Arithmetic errors, unexpected comparisons, potential buffer overflows due to incorrect index calculations.",
+      "ai_suggested_fix": "Use consistent types: 'size_t index = size - 1;' or explicitly cast: 'int index = (int)size - 1;' with appropriate bounds checking."
+    },
+    {
+      "rule_id": "CERT-ARR30-C",
+      "standard": "CERT",
+      "location": {
+        "file_path": "samples/test_violations.c", 
+        "line": 25,
+        "column": 5,
+        "end_line": null,
+        "end_column": null
+      },
+      "message": "Potential buffer overflow - no bounds checking before strcpy",
+      "severity": "critical",
+      "confidence": "high",
+      "source_context": "strcpy(buffer, data);",
+      "metadata": {
+        "buffer_size": 10,
+        "function": "strcpy"
+      },
+      "ai_explanation": "Buffer overflow occurs when data is copied into a buffer without checking if the source fits within the destination's bounds. This is one of the most dangerous security vulnerabilities in C programming.",
+      "ai_risk_summary": "Critical risk: Memory corruption, arbitrary code execution, system compromise. This is a primary attack vector for embedded system exploits.",
+      "ai_suggested_fix": "Use safe string functions: 'strncpy(buffer, data, sizeof(buffer)-1); buffer[sizeof(buffer)-1] = '\\0';' or 'snprintf(buffer, sizeof(buffer), \"%s\", data);'"
+    },
+    {
+      "rule_id": "MISRA-C-2012-16.4",
+      "standard": "MISRA",
+      "location": {
+        "file_path": "samples/test_violations.c",
+        "line": 31,
+        "column": 5,
+        "end_line": null,
+        "end_column": null
+      },
+      "message": "Switch statement missing default label",
+      "severity": "major", 
+      "confidence": "high",
+      "source_context": "switch (state) {",
+      "metadata": {},
+      "ai_explanation": "Every switch statement should have a default case to handle unexpected values. This ensures robustness and prevents undefined behavior when an unexpected value is encountered.",
+      "ai_risk_summary": "Medium risk: Undefined behavior with unexpected values, potential system instability, difficult to debug intermittent issues.",
+      "ai_suggested_fix": "Add a default case: 'default: /* Handle unexpected state */ printf(\"Unknown state: %d\\n\", state); break;'"
+    }
+  ],
+  "summary": {
+    "total_violations": 5,
+    "by_severity": {
+      "critical": 2,
+      "major": 2,
+      "minor": 1,
+      "info": 0
+    },
+    "by_standard": {
+      "MISRA": 3,
+      "CERT": 2
+    },
+    "by_rule": {
+      "MISRA-C-2012-8.7": 1,
+      "CERT-EXP34-C": 1,
+      "MISRA-C-2012-10.1": 1,
+      "CERT-ARR30-C": 1,
+      "MISRA-C-2012-16.4": 1
+    },
+    "files_analyzed": 1
+  },
+  "metadata": {
+    "analyzer_version": "1.0.0",
+    "config": {
+      "enabled_rules": [
+        "MISRA-C-2012-8.7",
+        "MISRA-C-2012-10.1", 
+        "MISRA-C-2012-16.4",
+        "CERT-EXP34-C",
+        "CERT-ARR30-C"
+      ],
+      "standards": ["MISRA", "CERT"],
+      "ai_enabled": true
+    },
+    "files_analyzed": 1,
+    "total_files_provided": 1,
+    "deviations_applied": 0,
+    "analysis_date": "2024-01-21T10:30:00Z",
+    "scan_duration_seconds": 2.345,
+    "environment": {
+      "python_version": "3.11.5",
+      "clang_version": "16.0.6",
+      "platform": "macOS-14.2.1-arm64"
+    }
+  }
+}

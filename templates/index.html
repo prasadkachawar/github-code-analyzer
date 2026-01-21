@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Code Analyzer - Free Static Analysis</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/themes/prism.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .main-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            margin: 20px auto;
+            max-width: 1200px;
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 2.5rem;
+            font-weight: 300;
+        }
+        
+        .header p {
+            margin: 10px 0 0 0;
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+        
+        .input-section {
+            padding: 40px;
+            background: #f8f9fa;
+        }
+        
+        .results-section {
+            padding: 40px;
+            display: none;
+        }
+        
+        .url-input {
+            border-radius: 50px;
+            border: 2px solid #dee2e6;
+            padding: 15px 25px;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .url-input:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+        
+        .analyze-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 50px;
+            padding: 15px 30px;
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .analyze-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .analyze-btn:disabled {
+            opacity: 0.6;
+            transform: none;
+        }
+        
+        .violation-card {
+            border-left: 4px solid #dc3545;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
+        }
+        
+        .violation-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .violation-card.warning {
+            border-left-color: #ffc107;
+        }
+        
+        .violation-card.info {
+            border-left-color: #17a2b8;
+        }
+        
+        .severity-badge {
+            font-size: 0.8rem;
+            padding: 4px 8px;
+        }
+        
+        .stats-card {
+            text-align: center;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .stats-card.errors {
+            background: #fff5f5;
+            border: 1px solid #feb2b2;
+        }
+        
+        .stats-card.warnings {
+            background: #fffbf0;
+            border: 1px solid #fbd38d;
+        }
+        
+        .stats-card.info {
+            background: #f0f9ff;
+            border: 1px solid #7dd3fc;
+        }
+        
+        .stats-card.clean {
+            background: #f0fdf4;
+            border: 1px solid #86efac;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+        
+        .spinner-border {
+            width: 3rem;
+            height: 3rem;
+            border-width: 0.3rem;
+        }
+        
+        .example-urls {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .example-url {
+            color: #667eea;
+            text-decoration: none;
+            cursor: pointer;
+            display: block;
+            padding: 5px 0;
+        }
+        
+        .example-url:hover {
+            color: #764ba2;
+            text-decoration: underline;
+        }
+        
+        .alert-custom {
+            border-radius: 10px;
+            border: none;
+            padding: 15px 20px;
+        }
+        
+        .repo-info {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .file-list {
+            background: #f8f9fa;
+            border-radius: 5px;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+        }
+        
+        .standard-badge {
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+        
+        .standard-misra {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+        
+        .standard-cert {
+            background: #f3e5f5;
+            color: #7b1fa2;
+        }
+        
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .input-section, .results-section {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid p-0">
+        <div class="main-container">
+            <!-- Header -->
+            <div class="header">
+                <h1><i class="fas fa-bug"></i> GitHub Code Analyzer</h1>
+                <p>Free MISRA C:2012 & CERT C/C++ Static Analysis for Your GitHub Repositories</p>
+            </div>
+            
+            <!-- Input Section -->
+            <div class="input-section">
+                <div class="row justify-content-center">
+                    <div class="col-lg-8">
+                        <h3 class="text-center mb-4">Analyze Your Repository</h3>
+                        
+                        <div class="input-group mb-3">
+                            <input type="url" 
+                                   id="githubUrl" 
+                                   class="form-control url-input" 
+                                   placeholder="https://github.com/username/repository"
+                                   autocomplete="url">
+                            <button class="btn analyze-btn" type="button" id="analyzeBtn">
+                                <i class="fas fa-search me-2"></i>Analyze Code
+                            </button>
+                        </div>
+                        
+                        <div id="errorAlert" class="alert alert-danger alert-custom" style="display: none;">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <span id="errorMessage"></span>
+                        </div>
+                        
+                        <!-- Example URLs -->
+                        <div class="example-urls">
+                            <h6><i class="fas fa-lightbulb me-2"></i>Try these example repositories:</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <a href="#" class="example-url" data-url="https://github.com/torvalds/linux">
+                                        <i class="fab fa-github me-2"></i>torvalds/linux
+                                    </a>
+                                    <a href="#" class="example-url" data-url="https://github.com/git/git">
+                                        <i class="fab fa-github me-2"></i>git/git
+                                    </a>
+                                </div>
+                                <div class="col-md-6">
+                                    <a href="#" class="example-url" data-url="https://github.com/curl/curl">
+                                        <i class="fab fa-github me-2"></i>curl/curl
+                                    </a>
+                                    <a href="#" class="example-url" data-url="https://github.com/redis/redis">
+                                        <i class="fab fa-github me-2"></i>redis/redis
+                                    </a>
+                                </div>
+                            </div>
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Note: Large repositories may take longer to analyze. We analyze up to 20 files.
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Loading Section -->
+            <div id="loadingSection" class="loading" style="display: none;">
+                <div class="spinner-border text-primary mb-3" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <h5>Analyzing your repository...</h5>
+                <p class="text-muted">This may take a few moments</p>
+            </div>
+            
+            <!-- Results Section -->
+            <div id="resultsSection" class="results-section">
+                <!-- Repository Info -->
+                <div id="repoInfo" class="repo-info">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h4 class="mb-1">
+                                <i class="fab fa-github me-2"></i>
+                                <span id="repoName"></span>
+                            </h4>
+                            <p class="text-muted mb-0">
+                                <span id="branchInfo"></span> • 
+                                <span id="analysisTime"></span>
+                            </p>
+                        </div>
+                        <div class="col-md-4 text-md-end">
+                            <button class="btn btn-outline-primary" onclick="resetForm()">
+                                <i class="fas fa-plus me-2"></i>Analyze Another
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Statistics -->
+                <div class="row mb-4">
+                    <div class="col-md-3 col-6">
+                        <div id="errorsCard" class="stats-card errors">
+                            <h3 class="text-danger mb-1">
+                                <i class="fas fa-times-circle me-2"></i>
+                                <span id="errorCount">0</span>
+                            </h3>
+                            <small>Errors</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3 col-6">
+                        <div id="warningsCard" class="stats-card warnings">
+                            <h3 class="text-warning mb-1">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                <span id="warningCount">0</span>
+                            </h3>
+                            <small>Warnings</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3 col-6">
+                        <div id="infoCard" class="stats-card info">
+                            <h3 class="text-info mb-1">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <span id="infoCount">0</span>
+                            </h3>
+                            <small>Info</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3 col-6">
+                        <div class="stats-card clean">
+                            <h3 class="text-success mb-1">
+                                <i class="fas fa-file-code me-2"></i>
+                                <span id="filesAnalyzed">0</span>
+                            </h3>
+                            <small>Files Analyzed</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Violations List -->
+                <div id="violationsList">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5>
+                            <i class="fas fa-list me-2"></i>Code Issues Found
+                        </h5>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <input type="radio" class="btn-check" name="severityFilter" id="filterAll" value="all" checked>
+                            <label class="btn btn-outline-secondary" for="filterAll">All</label>
+                            
+                            <input type="radio" class="btn-check" name="severityFilter" id="filterErrors" value="error">
+                            <label class="btn btn-outline-danger" for="filterErrors">Errors</label>
+                            
+                            <input type="radio" class="btn-check" name="severityFilter" id="filterWarnings" value="warning">
+                            <label class="btn btn-outline-warning" for="filterWarnings">Warnings</label>
+                            
+                            <input type="radio" class="btn-check" name="severityFilter" id="filterInfo" value="info">
+                            <label class="btn btn-outline-info" for="filterInfo">Info</label>
+                        </div>
+                    </div>
+                    
+                    <div id="violations"></div>
+                    
+                    <div id="noViolations" class="text-center py-5" style="display: none;">
+                        <div class="stats-card clean d-inline-block">
+                            <i class="fas fa-check-circle text-success" style="font-size: 3rem;"></i>
+                            <h4 class="mt-3 text-success">🎉 Clean Code!</h4>
+                            <p class="text-muted">No MISRA or CERT violations found in the analyzed files.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Files Analyzed -->
+                <div class="mt-4">
+                    <h6>
+                        <i class="fas fa-folder me-2"></i>Files Analyzed
+                        <button class="btn btn-link btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#filesList">
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                    </h6>
+                    <div class="collapse" id="filesList">
+                        <div id="filesAnalyzedList" class="file-list"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        let currentResults = null;
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            // Example URL clicks
+            document.querySelectorAll('.example-url').forEach(function(link) {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    document.getElementById('githubUrl').value = this.dataset.url;
+                });
+            });
+            
+            // Enter key support
+            document.getElementById('githubUrl').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    analyzeRepository();
+                }
+            });
+            
+            // Analyze button
+            document.getElementById('analyzeBtn').addEventListener('click', analyzeRepository);
+            
+            // Severity filter
+            document.querySelectorAll('input[name="severityFilter"]').forEach(function(radio) {
+                radio.addEventListener('change', filterViolations);
+            });
+        });
+        
+        function analyzeRepository() {
+            const url = document.getElementById('githubUrl').value.trim();
+            
+            if (!url) {
+                showError('Please enter a GitHub repository URL');
+                return;
+            }
+            
+            if (!isValidGitHubUrl(url)) {
+                showError('Please enter a valid GitHub repository URL (e.g., https://github.com/username/repository)');
+                return;
+            }
+            
+            hideError();
+            showLoading();
+            
+            fetch('/analyze', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ github_url: url })
+            })
+            .then(response => response.json())
+            .then(data => {
+                hideLoading();
+                if (data.error) {
+                    showError(data.error);
+                } else {
+                    showResults(data);
+                }
+            })
+            .catch(error => {
+                hideLoading();
+                showError('An error occurred while analyzing the repository: ' + error.message);
+            });
+        }
+        
+        function isValidGitHubUrl(url) {
+            const pattern = /^https:\/\/github\.com\/[\w\-\.]+\/[\w\-\.]+\/?$/;
+            return pattern.test(url);
+        }
+        
+        function showError(message) {
+            document.getElementById('errorMessage').textContent = message;
+            document.getElementById('errorAlert').style.display = 'block';
+        }
+        
+        function hideError() {
+            document.getElementById('errorAlert').style.display = 'none';
+        }
+        
+        function showLoading() {
+            document.getElementById('loadingSection').style.display = 'block';
+            document.getElementById('resultsSection').style.display = 'none';
+            document.getElementById('analyzeBtn').disabled = true;
+        }
+        
+        function hideLoading() {
+            document.getElementById('loadingSection').style.display = 'none';
+            document.getElementById('analyzeBtn').disabled = false;
+        }
+        
+        function showResults(data) {
+            currentResults = data;
+            
+            // Update repository info
+            const repo = data.repository;
+            document.getElementById('repoName').textContent = `${repo.owner}/${repo.name}`;
+            document.getElementById('branchInfo').textContent = `Branch: ${repo.branch}`;
+            document.getElementById('analysisTime').textContent = `Analyzed: ${new Date(data.timestamp).toLocaleString()}`;
+            
+            // Update statistics
+            document.getElementById('errorCount').textContent = data.summary.error_count;
+            document.getElementById('warningCount').textContent = data.summary.warning_count;
+            document.getElementById('infoCount').textContent = data.summary.info_count;
+            document.getElementById('filesAnalyzed').textContent = data.summary.files_analyzed;
+            
+            // Show violations
+            displayViolations(data.violations);
+            
+            // Show analyzed files
+            const filesList = document.getElementById('filesAnalyzedList');
+            if (data.files_analyzed && data.files_analyzed.length > 0) {
+                filesList.innerHTML = data.files_analyzed.map(file => 
+                    `<div><i class="fas fa-file-code me-2"></i>${file}</div>`
+                ).join('');
+            } else {
+                filesList.innerHTML = '<div class="text-muted">No C/C++ files found</div>';
+            }
+            
+            // Show results section
+            document.getElementById('resultsSection').style.display = 'block';
+            
+            // Scroll to results
+            document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        function displayViolations(violations) {
+            const container = document.getElementById('violations');
+            const noViolationsDiv = document.getElementById('noViolations');
+            
+            if (!violations || violations.length === 0) {
+                container.innerHTML = '';
+                noViolationsDiv.style.display = 'block';
+                return;
+            }
+            
+            noViolationsDiv.style.display = 'none';
+            
+            container.innerHTML = violations.map(violation => {
+                const severityClass = violation.severity.toLowerCase();
+                const standardBadge = getStandardBadge(violation.standard);
+                
+                return `
+                    <div class="card violation-card ${severityClass}" data-severity="${severityClass}">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <h6 class="card-title">
+                                        <code>${violation.rule_id}</code>
+                                        ${standardBadge}
+                                    </h6>
+                                    <p class="card-text">${violation.message}</p>
+                                    <div class="text-muted small">
+                                        <i class="fas fa-file me-1"></i>${violation.file}
+                                        <i class="fas fa-map-pin ms-3 me-1"></i>Line ${violation.line}:${violation.column}
+                                    </div>
+                                </div>
+                                <div class="ms-3">
+                                    <span class="badge severity-badge ${getSeverityBadgeClass(violation.severity)}">
+                                        ${violation.severity}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function getStandardBadge(standard) {
+            if (standard === 'MISRA') {
+                return '<span class="badge standard-badge standard-misra">MISRA</span>';
+            } else if (standard === 'CERT') {
+                return '<span class="badge standard-badge standard-cert">CERT</span>';
+            }
+            return '';
+        }
+        
+        function getSeverityBadgeClass(severity) {
+            const classes = {
+                'ERROR': 'bg-danger',
+                'WARNING': 'bg-warning text-dark',
+                'INFO': 'bg-info'
+            };
+            return classes[severity.toUpperCase()] || 'bg-secondary';
+        }
+        
+        function filterViolations() {
+            if (!currentResults) return;
+            
+            const filter = document.querySelector('input[name="severityFilter"]:checked').value;
+            const violations = document.querySelectorAll('.violation-card');
+            
+            violations.forEach(card => {
+                const severity = card.dataset.severity;
+                if (filter === 'all' || severity === filter) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+        
+        function resetForm() {
+            document.getElementById('githubUrl').value = '';
+            document.getElementById('resultsSection').style.display = 'none';
+            hideError();
+            document.querySelector('.input-section').scrollIntoView({ behavior: 'smooth' });
+        }
+    </script>
+</body>
+</html>

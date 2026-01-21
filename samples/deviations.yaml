@@ -1,0 +1,41 @@
+# Static Analysis Deviations
+# Rule suppressions with justification for audit compliance
+
+deviations:
+  # Legacy code deviation
+  - rule_id: "MISRA-C-2012-8.7"
+    file_pattern: "legacy/"
+    justification: "Legacy code scheduled for refactoring in Q2 2024. Global variables required for backward compatibility with existing interfaces."
+    approved_by: "Senior Software Architect John Doe"
+    approval_date: "2024-01-15"
+    expiry_date: "2024-06-30"
+    line_ranges: null  # Apply to entire files matching pattern
+
+  # Hardware driver exception
+  - rule_id: "CERT-EXP34-C" 
+    file_pattern: "drivers/hardware"
+    justification: "Hardware register access requires direct pointer manipulation. Null pointer checks would add unnecessary overhead in interrupt contexts."
+    approved_by: "Safety Manager Jane Smith"
+    approval_date: "2024-01-20"
+    expiry_date: null  # No expiry - permanent exception
+    line_ranges: 
+      - [100, 150]  # Interrupt handler section
+      - [200, 250]  # Register access functions
+
+  # Performance critical section
+  - rule_id: "CERT-ARR30-C"
+    file_pattern: "engine_control.c"
+    justification: "Engine control loop requires optimized array access patterns. Bounds checking performed at higher level initialization."
+    approved_by: "Chief Engineer Mike Johnson"
+    approval_date: "2024-02-01"
+    expiry_date: "2024-12-31"
+    line_ranges:
+      - [500, 600]  # Main control loop
+
+  # Third-party library interface
+  - rule_id: "MISRA-C-2012-10.1"
+    file_pattern: "third_party/"
+    justification: "Third-party library interfaces require specific type conversions. Verified through extensive testing and vendor certification."
+    approved_by: "Technical Lead Sarah Wilson"  
+    approval_date: "2024-01-25"
+    expiry_date: "2025-01-25"  # Annual review required

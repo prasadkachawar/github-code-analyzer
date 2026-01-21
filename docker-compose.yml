@@ -1,0 +1,86 @@
+version: '3.8'
+
+services:
+  mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: static-analysis-mcp-server
+    ports:
+      - "5000:5000"
+    environment:
+      # GitHub Configuration
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET}
+      
+      # LLM API Keys
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      
+      # Email Configuration
+      - EMAIL_USER=${EMAIL_USER}
+      - EMAIL_PASSWORD=${EMAIL_PASSWORD}
+      - FROM_EMAIL=${FROM_EMAIL}
+      
+      # Application Configuration
+      - MCP_CONFIG_PATH=/app/mcp_server/config.yaml
+      - PYTHONPATH=/app
+      - FLASK_ENV=production
+      
+    volumes:
+      # Persistent storage for reports and baselines
+      - analysis_data:/app/analysis_reports
+      - baseline_data:/app/analysis_baselines
+      - temp_repos:/app/temp_repos
+      
+      # Mount configuration if needed
+      - ./mcp_server/config.yaml:/app/mcp_server/config.yaml:ro
+      
+    restart: unless-stopped
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+    
+    # Security
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=100m
+
+volumes:
+  analysis_data:
+    driver: local
+  baseline_data:
+    driver: local
+  temp_repos:
+    driver: local
+
+# Optional: Add monitoring services
+  # prometheus:
+  #   image: prom/prometheus
+  #   ports:
+  #     - "9090:9090"
+  #   volumes:
+  #     - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+  
+  # grafana:
+  #   image: grafana/grafana
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     - GF_SECURITY_ADMIN_PASSWORD=admin

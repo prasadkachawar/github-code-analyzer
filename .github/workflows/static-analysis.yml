@@ -1,0 +1,233 @@
+name: Static Analysis
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  static-analysis:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Full history for baseline comparison
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y clang libclang-dev
+
+    - name: Cache Python dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Validate configuration
+      run: |
+        python -m static_analyzer.cli validate-config --config static_analyzer_config.yaml
+
+    - name: Run static analysis
+      run: |
+        python -m static_analyzer.cli analyze \
+          --path src/ \
+          --config static_analyzer_config.yaml \
+          --deviations deviations.yaml \
+          --output analysis_report.json \
+          --format json \
+          --recursive \
+          --verbose
+
+    - name: Check for new violations (PR only)
+      if: github.event_name == 'pull_request'
+      run: |
+        # Download baseline from main branch
+        git show origin/main:analysis_report.json > baseline_report.json || echo "No baseline found"
+        
+        # Run analysis with baseline comparison
+        python -m static_analyzer.cli analyze \
+          --path src/ \
+          --config static_analyzer_config.yaml \
+          --deviations deviations.yaml \
+          --output new_violations.json \
+          --baseline baseline_report.json \
+          --fail-on-new \
+          --verbose
+
+    - name: Upload analysis report
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: static-analysis-report
+        path: |
+          analysis_report.json
+          new_violations.json
+        retention-days: 30
+
+    - name: Generate summary comment (PR only)
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          
+          let reportPath = 'new_violations.json';
+          if (!fs.existsSync(reportPath)) {
+            reportPath = 'analysis_report.json';
+          }
+          
+          if (fs.existsSync(reportPath)) {
+            const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+            const violationCount = report.violations.length;
+            
+            let summary = `## 🔍 Static Analysis Results\n\n`;
+            
+            if (violationCount === 0) {
+              summary += `✅ **No violations found!**\n`;
+            } else {
+              summary += `❌ **${violationCount} violation(s) found**\n\n`;
+              
+              // Group by severity
+              const severityCount = {};
+              report.violations.forEach(v => {
+                severityCount[v.severity] = (severityCount[v.severity] || 0) + 1;
+              });
+              
+              summary += `### Breakdown by severity:\n`;
+              Object.entries(severityCount).forEach(([severity, count]) => {
+                const emoji = {
+                  'critical': '🔴',
+                  'major': '🟠', 
+                  'minor': '🟡',
+                  'info': '🔵'
+                }[severity] || '⚪';
+                summary += `- ${emoji} ${severity.toUpperCase()}: ${count}\n`;
+              });
+              
+              // Show first few violations
+              summary += `\n### Sample violations:\n`;
+              report.violations.slice(0, 5).forEach(v => {
+                summary += `- \`${v.rule_id}\` at ${v.location.file_path}:${v.location.line}\n`;
+                summary += `  ${v.message}\n`;
+              });
+              
+              if (report.violations.length > 5) {
+                summary += `\n*... and ${report.violations.length - 5} more*\n`;
+              }
+            }
+            
+            summary += `\n---\n`;
+            summary += `📊 Full report available in workflow artifacts`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: summary
+            });
+          }
+
+  # Additional job for security scanning
+  security-scan:
+    runs-on: ubuntu-latest
+    needs: static-analysis
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run CodeQL Analysis
+      uses: github/codeql-action/init@v2
+      with:
+        languages: cpp
+
+    - name: Autobuild
+      uses: github/codeql-action/autobuild@v2
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v2
+
+  # Quality gate job
+  quality-gate:
+    runs-on: ubuntu-latest
+    needs: [static-analysis, security-scan]
+    if: always()
+    
+    steps:
+    - name: Download analysis report
+      uses: actions/download-artifact@v3
+      with:
+        name: static-analysis-report
+
+    - name: Quality gate check
+      run: |
+        echo "Checking quality gate criteria..."
+        
+        if [ -f analysis_report.json ]; then
+          # Check violation thresholds
+          CRITICAL=$(python3 -c "
+          import json
+          with open('analysis_report.json') as f:
+            data = json.load(f)
+          print(sum(1 for v in data['violations'] if v['severity'] == 'critical'))
+          ")
+          
+          MAJOR=$(python3 -c "
+          import json  
+          with open('analysis_report.json') as f:
+            data = json.load(f)
+          print(sum(1 for v in data['violations'] if v['severity'] == 'major'))
+          ")
+          
+          echo "Critical violations: $CRITICAL"
+          echo "Major violations: $MAJOR"
+          
+          # Quality gate thresholds
+          if [ "$CRITICAL" -gt 0 ]; then
+            echo "❌ Quality gate failed: Critical violations found"
+            exit 1
+          fi
+          
+          if [ "$MAJOR" -gt 10 ]; then
+            echo "❌ Quality gate failed: Too many major violations ($MAJOR > 10)"
+            exit 1
+          fi
+          
+          echo "✅ Quality gate passed"
+        fi
+
+    - name: Update commit status
+      if: always()
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const state = '${{ job.status }}' === 'success' ? 'success' : 'failure';
+          const description = state === 'success' ? 
+            'All quality checks passed' : 
+            'Quality gate failed - check violations';
+          
+          github.rest.repos.createCommitStatus({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            sha: context.sha,
+            state: state,
+            context: 'static-analysis/quality-gate',
+            description: description,
+            target_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
+          });

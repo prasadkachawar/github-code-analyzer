@@ -1,0 +1,14 @@
+# Render.com configuration
+version: 2
+services:
+  - type: web
+    name: github-code-analyzer
+    env: python
+    plan: free
+    buildCommand: "pip install -r requirements_web.txt"
+    startCommand: "gunicorn web_app:app --bind 0.0.0.0:$PORT --timeout 120"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: PORT
+        generateValue: true
