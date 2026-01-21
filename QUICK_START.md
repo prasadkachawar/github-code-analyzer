@@ -29,10 +29,13 @@ A **professional web application** that allows developers to analyze GitHub repo
    - Sign up with GitHub
    - Click "New +" → "Web Service"
    - Connect your `github-code-analyzer` repository
-   - Use these settings:
-     - **Build Command**: `pip install -r requirements_web.txt`
-     - **Start Command**: `gunicorn web_app:app --bind 0.0.0.0:$PORT --timeout 120`
-   - Click "Deploy"
+   - Use these **EXACT** settings:
+     - **Name**: `github-code-analyzer`
+     - **Branch**: `main`
+     - **Runtime**: `Python 3`
+     - **Build Command**: `pip install -r requirements_minimal.txt`
+     - **Start Command**: `gunicorn app_simple:app --bind 0.0.0.0:$PORT --timeout 120 --workers 1`
+   - Click "Create Web Service"
 
 3. **Get Your URL**: `https://github-code-analyzer-XXXX.onrender.com`
 
